@@ -11,6 +11,18 @@ import * as actionTypes from './actions/actionTypes';
 
 let store = 'call initStore first';
 
+
+const cleanURL = (url) => {
+  const regexProtocolHostPort = /https?:\/\/(([A-Za-z0-9-])+(\.?))+[a-z]+(:[0-9]+)?/;
+  const regexLastTrailingSlash = /\/$|\/(?=\?)/;
+  return url.replace(regexProtocolHostPort, '').replace(regexLastTrailingSlash, '');
+};
+
+const trimQueryString = (url) => {
+  const regexQueryString = /\?.+$/;
+  return url.replace(regexQueryString, '');
+};
+
 function initStore(
   hintText,
   connectingText,
@@ -53,7 +65,7 @@ function initStore(
       }
       case actionTypes.EVAL_URL: {
         const pageCallbacks = store.getState().behavior.get('pageChangeCallbacks');
-        const pageCallbacksJs = pageCallbacks ?  pageCallbacks.toJS() : {};
+        const pageCallbacksJs = pageCallbacks ? pageCallbacks.toJS() : {};
 
         const newUrl = action.url;
         const emitMessage = (message) => {
@@ -74,11 +86,19 @@ function initStore(
                 emitMessage(callback.callbackIntent);
                 return true;
               }
-            } else if (newUrl === callback.url) {
-              emitMessage(callback.callbackIntent);
-              return true;
+            } else {
+              let cleanCurrentUrl = cleanURL(newUrl);
+              let cleanCallBackUrl = cleanURL(callback.url);
+              if (!cleanCallBackUrl.match(/\?.+$/)) { // the callback does not have a querystring
+                cleanCurrentUrl = trimQueryString(cleanCurrentUrl);
+                cleanCallBackUrl = trimQueryString(cleanCallBackUrl);
+              }
+              if (cleanCurrentUrl === cleanCallBackUrl) {
+                emitMessage(callback.callbackIntent);
+                return true;
+              }
+              return false;
             }
-            return false;
           });
           if (!matched) emitMessage(errorIntent);
         }
